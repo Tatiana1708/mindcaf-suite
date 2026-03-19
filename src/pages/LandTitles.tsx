@@ -1,5 +1,5 @@
-import React from 'react';
-import { useLandTitles } from '@/hooks/useData';
+import React, { useState } from 'react';
+import { useLandTitles, useLandTransactions, useLandCharges, LandTitle } from '@/hooks/useData';
 import { 
   Plus, 
   Search, 
@@ -20,7 +20,13 @@ import {
   ShieldCheck,
   Eye,
   Trash2,
-  Printer
+  Printer,
+  History,
+  Lock,
+  Zap,
+  ArrowRightLeft,
+  X,
+  QrCode
 } from 'lucide-react';
 import { 
   Table, 
@@ -34,18 +40,35 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
+  Sheet, 
+  SheetContent, 
+  SheetDescription, 
+  SheetHeader, 
+  SheetTitle, 
+  SheetTrigger 
+} from '@/components/ui/sheet';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { Skeleton } from '@/components/ui/skeleton';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function LandTitles() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTitle, setSelectedTitle] = useState<LandTitle | null>(null);
   const { data: landTitles, isLoading } = useLandTitles();
+  const { data: transactions } = useLandTransactions(selectedTitle ? { titleId: selectedTitle.id } : undefined);
+  const { data: charges } = useLandCharges(selectedTitle?.id);
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
@@ -60,15 +83,23 @@ export default function LandTitles() {
     }
   };
 
+  const handleGenerateCertificate = () => {
+    toast.success("Certificat de propriété en cours de génération...");
+  };
+
+  const handleGenerateRBI = () => {
+    toast.success("Relevé de Biens Immobiliers (RBI) en cours de génération...");
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-1 flex items-center gap-3">
-             <Map className="w-8 h-8 text-primary" /> Gestion des Titres Fonciers
+             <Map className="w-8 h-8 text-primary" /> Registre Foncier
           </h1>
-          <p className="text-muted-foreground text-sm flex items-center gap-1.5">
-             Module de consultation et gestion du registre foncier national.
+          <p className="text-muted-foreground text-sm">
+             Consultation et gestion centralisée des titres fonciers nationaux.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -88,7 +119,6 @@ export default function LandTitles() {
             </CardHeader>
             <CardContent className="p-4 pt-0">
                <div className="text-3xl font-black">{landTitles?.length || 0}</div>
-               <p className="text-[10px] mt-1 text-primary-foreground/60 font-medium">Enregistrés dans le système</p>
             </CardContent>
          </Card>
          <Card className="border-none shadow-elegant bg-card">
@@ -97,16 +127,6 @@ export default function LandTitles() {
             </CardHeader>
             <CardContent className="p-4 pt-0">
                <div className="text-3xl font-black text-foreground">{landTitles?.filter(t => t.status === 'active').length || 0}</div>
-               <p className="text-[10px] mt-1 text-muted-foreground font-medium">Validés et sécurisés</p>
-            </CardContent>
-         </Card>
-         <Card className="border-none shadow-elegant bg-card">
-            <CardHeader className="p-4 pb-2">
-               <CardTitle className="text-xs uppercase tracking-widest text-muted-foreground font-bold">En Instance</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-               <div className="text-3xl font-black text-foreground">{landTitles?.filter(t => t.status === 'pending').length || 0}</div>
-               <p className="text-[10px] mt-1 text-muted-foreground font-medium">En cours de traitement</p>
             </CardContent>
          </Card>
          <Card className="border-none shadow-elegant bg-card">
@@ -115,7 +135,14 @@ export default function LandTitles() {
             </CardHeader>
             <CardContent className="p-4 pt-0">
                <div className="text-3xl font-black text-red-500">{landTitles?.filter(t => t.status === 'dispute').length || 0}</div>
-               <p className="text-[10px] mt-1 text-muted-foreground font-medium">Dossiers à traiter d'urgence</p>
+            </CardContent>
+         </Card>
+         <Card className="border-none shadow-elegant bg-card">
+            <CardHeader className="p-4 pb-2">
+               <CardTitle className="text-xs uppercase tracking-widest text-muted-foreground font-bold">Nouvelles Demandes</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+               <div className="text-3xl font-black text-foreground">12</div>
             </CardContent>
          </Card>
       </div>
@@ -127,14 +154,16 @@ export default function LandTitles() {
               <Input 
                  placeholder="Rechercher par n&deg; de titre ou propriétaire..." 
                  className="pl-10 h-11 bg-background focus-visible:ring-primary/20 border-primary/10 shadow-sm"
+                 value={searchTerm}
+                 onChange={(e) => setSearchTerm(e.target.value)}
               />
            </div>
            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Button variant="outline" className="gap-2 h-11 font-semibold group border-primary/10">
-                 <Filter className="w-4 h-4 group-hover:text-primary transition-colors" /> Filtrer
+              <Button variant="outline" className="gap-2 h-11 font-semibold border-primary/10">
+                 <Filter className="w-4 h-4 text-muted-foreground" /> Filtrer
               </Button>
-              <Button variant="outline" className="gap-2 h-11 font-semibold group border-primary/10">
-                 <Download className="w-4 h-4 group-hover:text-primary transition-colors" /> Exporter
+              <Button variant="outline" className="gap-2 h-11 font-semibold border-primary/10">
+                 <Download className="w-4 h-4 text-muted-foreground" /> Exporter
               </Button>
            </div>
         </div>
@@ -142,105 +171,203 @@ export default function LandTitles() {
         <Table>
           <TableHeader className="bg-muted/30">
             <TableRow>
-              <TableHead className="font-bold py-4">Numéro de Titre</TableHead>
-              <TableHead className="font-bold py-4">Propriétaire</TableHead>
-              <TableHead className="font-bold py-4">Localisation</TableHead>
-              <TableHead className="font-bold py-4">Superficie</TableHead>
-              <TableHead className="font-bold py-4 text-center">Statut</TableHead>
-              <TableHead className="font-bold py-4 text-right pr-6">Actions</TableHead>
+              <TableHead className="font-bold">Numéro de Titre</TableHead>
+              <TableHead className="font-bold">Propriétaire</TableHead>
+              <TableHead className="font-bold">Localisation</TableHead>
+              <TableHead className="font-bold">Superficie</TableHead>
+              <TableHead className="font-bold text-center">Authentification</TableHead>
+              <TableHead className="font-bold text-center">Statut</TableHead>
+              <TableHead className="font-bold text-right pr-6">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={6} className="h-16 text-center">
+                  <TableCell colSpan={7} className="h-16 text-center">
                     <Loader2 className="w-5 h-5 animate-spin mx-auto text-primary/30" />
                   </TableCell>
                 </TableRow>
               ))
             ) : landTitles?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-40 text-center">
-                   <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-2">
-                        <FileText className="w-6 h-6 text-muted-foreground/50" />
-                      </div>
-                      <p className="text-sm font-semibold text-muted-foreground">Aucun titre foncier trouvé</p>
-                      <Button variant="link" className="text-primary font-bold">Enregistrer le premier titre</Button>
-                   </div>
+                <TableCell colSpan={7} className="h-40 text-center">
+                   <p className="text-sm font-semibold text-muted-foreground">Aucun titre foncier trouvé</p>
                 </TableCell>
               </TableRow>
             ) : (
-              landTitles?.map((title) => (
-                <TableRow key={title.id} className="hover:bg-primary/5 transition-colors cursor-pointer">
-                  <TableCell className="py-4">
-                    <div className="flex items-center gap-3">
-                       <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-                          <MapPin className="w-4 h-4 text-primary" />
-                       </div>
-                       <span className="font-mono text-sm font-bold text-primary">{title.titleNumber}</span>
-                    </div>
-                  </TableCell>
+              landTitles?.filter(t => t.titleNumber.includes(searchTerm) || t.ownerName.toLowerCase().includes(searchTerm.toLowerCase())).map((title) => (
+                <TableRow key={title.id} className="hover:bg-primary/5 transition-colors group cursor-pointer">
+                  <TableCell className="py-4 font-mono text-sm font-bold text-primary">{title.titleNumber}</TableCell>
                   <TableCell className="font-semibold">{title.ownerName}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground font-medium">{title.location}</TableCell>
-                  <TableCell>
-                     <div className="flex items-center gap-1.5 font-bold">
-                        <span>{title.surfaceArea || 0}</span>
-                        <span className="text-[10px] text-muted-foreground uppercase">m&sup2;</span>
-                     </div>
+                  <TableCell className="text-sm text-muted-foreground">{title.location}</TableCell>
+                  <TableCell className="font-bold">{title.surfaceArea} m&sup2;</TableCell>
+                  <TableCell className="text-center">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 gap-2 hover:text-primary">
+                          <Scan className="w-4 h-4 text-primary" />
+                          <span>QR</span>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[300px] flex flex-col items-center gap-4">
+                        <DialogHeader>
+                          <DialogTitle className="text-center">Authentification TF</DialogTitle>
+                          <DialogDescription className="text-center">TF N° {title.titleNumber}</DialogDescription>
+                        </DialogHeader>
+                        <div className="p-4 bg-white rounded-xl shadow-inner border border-primary/10">
+                          <QRCodeSVG 
+                            value={`${window.location.origin}/titles/${title.id}`} 
+                            size={200} 
+                            level="H"
+                          />
+                        </div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Scanner pour authentifier</p>
+                      </DialogContent>
+                    </Dialog>
                   </TableCell>
                   <TableCell className="text-center">
                     {getStatusBadge(title.status)}
                   </TableCell>
                   <TableCell className="text-right pr-6">
-                    <div className="flex items-center justify-end gap-1">
-                       <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary rounded-full transition-colors">
+                    <Sheet>
+                      <SheetTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 hover:text-primary rounded-full"
+                          onClick={() => setSelectedTitle(title)}
+                        >
                           <Eye className="w-4 h-4" />
-                       </Button>
-                       <DropdownMenu>
-                         <DropdownMenuTrigger asChild>
-                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                              <MoreHorizontal className="w-4 h-4" />
-                           </Button>
-                         </DropdownMenuTrigger>
-                         <DropdownMenuContent align="end" className="w-52">
-                            <DropdownMenuLabel>Actions sur le titre</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="gap-2 font-medium">
-                               <FileText className="w-4 h-4" /> Certificat d'authenticité
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 font-medium">
-                               <Printer className="w-4 h-4" /> Imprimer le titre
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 font-medium">
-                               <Layers className="w-4 h-4" /> Historique foncier
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="gap-2 font-medium text-destructive focus:text-destructive">
-                               <Trash2 className="w-4 h-4" /> Supprimer le titre
-                            </DropdownMenuItem>
-                         </DropdownMenuContent>
-                       </DropdownMenu>
-                    </div>
+                        </Button>
+                      </SheetTrigger>
+                      <SheetContent className="sm:max-w-[600px] overflow-y-auto">
+                        <SheetHeader className="pb-6 border-b">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-elegant">
+                              <Map className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                              <SheetTitle className="text-2xl font-black text-primary">TF {title.titleNumber}</SheetTitle>
+                              <SheetDescription className="font-bold">Propriété de {title.ownerName}</SheetDescription>
+                            </div>
+                          </div>
+                        </SheetHeader>
+                        
+                        <div className="py-8 space-y-8 animate-slide-up">
+                          <div className="grid grid-cols-2 gap-4">
+                            <Card className="border-none bg-muted/30 p-4">
+                              <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Localisation</p>
+                              <p className="text-sm font-black flex items-center gap-1.5">
+                                <MapPin className="w-3.5 h-3.5 text-primary" /> {title.location}
+                              </p>
+                            </Card>
+                            <Card className="border-none bg-muted/30 p-4">
+                              <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Superficie</p>
+                              <p className="text-sm font-black">{title.surfaceArea} m&sup2;</p>
+                            </Card>
+                          </div>
+
+                          <div className="space-y-4">
+                            <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                              <Zap className="w-4 h-4 text-primary" /> Actions Rapides
+                            </h3>
+                            <div className="grid grid-cols-2 gap-3">
+                              <Button onClick={handleGenerateCertificate} variant="outline" className="h-12 gap-2 font-bold border-primary/20">
+                                <ShieldCheck className="w-4 h-4 text-green-500" /> Certificat
+                              </Button>
+                              <Button onClick={handleGenerateRBI} variant="outline" className="h-12 gap-2 font-bold border-primary/20">
+                                <FileText className="w-4 h-4 text-blue-500" /> Relevé RBI
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="p-6 bg-muted/20 rounded-2xl flex items-center gap-6 border">
+                             <div className="w-24 h-24 bg-white p-2 rounded-xl border-2 border-primary/20 flex items-center justify-center shadow-sm">
+                                <QRCodeSVG 
+                                  value={`${window.location.origin}/titles/${title.id}`} 
+                                  size={80} 
+                                  level="H"
+                                />
+                             </div>
+                             <div>
+                                <h4 className="text-sm font-black uppercase tracking-tight">Authentification QR</h4>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                   Scannez pour vérifier l'authenticité du titre sur le portail public Soficam.
+                                </p>
+                                <Button variant="link" className="h-auto p-0 mt-2 text-[10px] font-bold text-primary uppercase">Copier le lien de vérification</Button>
+                             </div>
+                          </div>
+
+                          <Tabs defaultValue="transactions" className="w-full">
+                            <TabsList className="grid w-full grid-cols-2 bg-muted/50">
+                              <TabsTrigger value="transactions" className="font-bold text-xs uppercase tracking-tighter gap-2">
+                                <History className="w-3.5 h-3.5" /> Historique
+                              </TabsTrigger>
+                              <TabsTrigger value="charges" className="font-bold text-xs uppercase tracking-tighter gap-2">
+                                <Lock className="w-3.5 h-3.5" /> Charges
+                              </TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="transactions" className="mt-4">
+                              {transactions && transactions.length > 0 ? (
+                                <div className="space-y-3">
+                                  {transactions.map(tx => (
+                                    <div key={tx.id} className="flex items-center justify-between p-3 rounded-xl border bg-card/50">
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                          <ArrowRightLeft className="w-4 h-4 text-primary" />
+                                        </div>
+                                        <div>
+                                          <p className="text-xs font-bold uppercase">{tx.type}</p>
+                                          <p className="text-[10px] text-muted-foreground">{format(new Date(tx.transactionDate), 'dd/MM/yyyy')}</p>
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-sm font-black">{tx.amount ? `${new Intl.NumberFormat().format(tx.amount)} F` : '---'}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center py-8 text-muted-foreground text-sm font-medium italic">
+                                  Aucun historique de transaction
+                                </div>
+                              )}
+                            </TabsContent>
+                            <TabsContent value="charges" className="mt-4">
+                               {charges && charges.length > 0 ? (
+                                <div className="space-y-3">
+                                  {charges.map(charge => ( 
+                                    <div key={charge.id} className="flex items-center justify-between p-3 rounded-xl border border-red-100 bg-red-50/20">
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                                          <Lock className="w-4 h-4 text-red-600" />
+                                        </div>
+                                        <div>
+                                          <p className="text-xs font-bold uppercase text-red-700">{charge.type}</p>
+                                          <p className="text-[10px] text-red-600/70">{charge.status}</p>
+                                        </div>
+                                      </div>
+                                      <Badge variant="outline" className="text-[10px] uppercase tracking-tighter">{charge.expiryDate || 'Permanent'}</Badge>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center py-8 text-muted-foreground text-sm font-medium italic">
+                                  Titre libre de toutes charges
+                                </div>
+                              )}
+                            </TabsContent>
+                          </Tabs>
+                        </div>
+                      </SheetContent>
+                    </Sheet>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-        
-        <div className="p-4 bg-muted/10 border-t flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-           <span>Total: {landTitles?.length || 0} Titres répertoriés</span>
-           <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2 font-black uppercase">Précédent</Button>
-              <div className="flex gap-1">
-                 <span className="w-7 h-7 bg-primary text-primary-foreground flex items-center justify-center rounded-md">1</span>
-                 <span className="w-7 h-7 hover:bg-muted flex items-center justify-center rounded-md cursor-pointer transition-colors">2</span>
-              </div>
-              <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2 font-black uppercase">Suivant</Button>
-           </div>
-        </div>
       </div>
     </div>
   );

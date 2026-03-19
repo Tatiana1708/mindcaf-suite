@@ -56,12 +56,12 @@ const SidebarItem = ({ icon: Icon, label, href, active }: SidebarItemProps) => (
 
 const sidebarItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
+  { icon: FileText, label: 'Immatriculations', href: '/registration' },
   { icon: Gavel, label: 'Gestion Domaniale', href: '/expropriations' },
   { icon: Map, label: 'Gestion Foncière', href: '/titles' },
-  { icon: Building2, label: 'Aménagement & Urbanisme', href: '/urbanism' },
-  { icon: FileText, label: 'Cadastre & Cartographie', href: '/cadastre' },
+  { icon: History, label: 'Transactions', href: '/transactions' },
+  { icon: User, label: 'Notaires', href: '/notaries' },
   { icon: Mail, label: 'Gestion du Courrier', href: '/mail' },
-  { icon: History, label: 'Suivi des Dossiers', href: '/tracking' },
   { icon: Archive, label: 'Gestion des Archives', href: '/archives' },
 ];
 

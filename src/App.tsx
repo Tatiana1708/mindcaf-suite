@@ -17,6 +17,9 @@ const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const Mail = lazy(() => import('@/pages/Mail'));
 const LandTitles = lazy(() => import('@/pages/LandTitles'));
 const Expropriations = lazy(() => import('@/pages/Expropriations'));
+const RegistrationDossiers = lazy(() => import('@/pages/RegistrationDossiers'));
+const Notaries = lazy(() => import('@/pages/Notaries'));
+const LandTransactions = lazy(() => import('@/pages/LandTransactions'));
 
 const LoadingFallback = () => (
   <div className="h-screen flex items-center justify-center bg-background">
@@ -79,11 +82,32 @@ const expropriationsRoute = createRoute({
   component: Expropriations,
 });
 
+const registrationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/registration',
+  component: RegistrationDossiers,
+});
+
+const notariesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/notaries',
+  component: Notaries,
+});
+
+const transactionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/transactions',
+  component: LandTransactions,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   mailRoute,
   titlesRoute,
   expropriationsRoute,
+  registrationRoute,
+  notariesRoute,
+  transactionsRoute,
 ]);
 
 const router = createRouter({ routeTree });

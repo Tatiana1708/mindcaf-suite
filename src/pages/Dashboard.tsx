@@ -11,7 +11,8 @@ import {
   FileText,
   UserPlus,
   ArrowRight,
-  MoreVertical
+  MoreVertical,
+  User // Added User icon
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -86,18 +87,18 @@ export default function Dashboard() {
           isLoading={isLoading}
         />
         <StatCard 
-          title="Expropriations" 
-          value={stats?.expropriations || 0} 
-          icon={Gavel} 
-          description="Projets actifs"
-          trend={{ value: 2, isPositive: false }}
+          title="Dossiers d'Immat." 
+          value={stats?.registrationDossiers || 0} 
+          icon={FileText} 
+          description="En cours de traitement"
+          trend={{ value: 8, isPositive: true }}
           isLoading={isLoading}
         />
         <StatCard 
-          title="Taux de Traitement" 
-          value="87%" 
-          icon={CheckCircle2} 
-          description="Efficacité globale"
+          title="Notaires Partenaires" 
+          value={stats?.activeNotaries || 0} 
+          icon={User} 
+          description="Cabinets agréés"
           isLoading={isLoading}
         />
       </div>

@@ -40,7 +40,6 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { 
   Dialog, 
   DialogContent, 
